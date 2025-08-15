@@ -1,0 +1,89 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Econ Abstracts Viewer (MVP)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0; }
+      .bar { padding: 8px 12px; border-bottom: 1px solid #ddd; display: flex; gap: 8px; align-items: center; }
+      .row { padding: 10px 12px; border-bottom: 1px solid #eee; height: 88px; box-sizing: border-box; }
+      .title { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .meta { color: #666; font-size: 12px; margin-top: 2px; }
+      .abs  { color: #333; font-size: 12px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    </style>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-window/umd/react-window.development.js"></script>
+  </head>
+  <body>
+    <div class="bar">
+      <label>Snapshot root:</label>
+      <input id="rootInput" size="50" value="/snapshots/v2025-08-15">
+      <button id="loadBtn">Load</button>
+      <span id="status" style="color:#666;font-size:12px;"></span>
+    </div>
+    <div id="app"></div>
+    <script>
+      const { FixedSizeList } = window.ReactWindow;
+
+      function App({ base }) {
+        const [mani, setMani] = React.useState(null);
+        const [cache] = React.useState(()=>new Map());
+
+        React.useEffect(()=>{
+          fetch(base + "/manifest.json")
+            .then(r => { if(!r.ok) throw new Error("manifest " + r.status); return r.json(); })
+            .then(setMani)
+            .catch(e => document.getElementById('status').textContent = e.message);
+        }, [base]);
+
+        const getTile = async (tid) => {
+          if (cache.has(tid)) return cache.get(tid);
+          const url = base + "/" + (mani.tiles.pattern.replace("{tile_id}", String(tid).padStart(5,"0")));
+          const res = await fetch(url);
+          if(!res.ok) throw new Error(url + " " + res.status);
+          // devserver sets Content-Encoding: br so browser auto-decompresses
+          const json = await res.json();
+          cache.set(tid, json);
+          return json;
+        };
+
+        if (!mani) return React.createElement('div', null, 'Loading manifest…');
+
+        const Row = ({ index, style }) => {
+          const [d, setD] = React.useState(null);
+          React.useEffect(()=>{
+            const tid = Math.floor(index / mani.counts.tile_size);
+            getTile(tid).then(tile => setD(tile.docs[index - tile.start_index]));
+          }, [index]);
+          return React.createElement('div', { style, className: 'row' },
+            d ? [
+              React.createElement('div', { key:1, className:'title' }, d.title),
+              React.createElement('div', { key:2, className:'meta' }, `${d.venue} · ${d.year}`),
+              React.createElement('div', { key:3, className:'abs'  }, d.abstract_300)
+            ] : '…'
+          );
+        };
+
+        return React.createElement(FixedSizeList, {
+          height: window.innerHeight - 48,
+          itemCount: mani.counts.docs,
+          itemSize: 88,
+          width: '100%'
+        }, Row);
+      }
+
+      const rootEl = document.getElementById('app');
+      function mount(base) {
+        ReactDOM.render(React.createElement(App, { base }), rootEl);
+      }
+      document.getElementById('loadBtn').onclick = () => {
+        const base = document.getElementById('rootInput').value.trim();
+        mount(base);
+      };
+      // auto-load default
+      mount(document.getElementById('rootInput').value.trim());
+    </script>
+  </body>
+</html>

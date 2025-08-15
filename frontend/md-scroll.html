@@ -1,0 +1,73 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>MD Scroll — Econ Abstracts</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root { --bar-h: 48px; }
+      body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+      .bar { position: sticky; top: 0; height: var(--bar-h); display: flex; gap: 8px; align-items: center;
+             padding: 8px 12px; border-bottom: 1px solid #e5e7eb; background: #fff; z-index: 10; }
+      input { padding: 6px 8px; width: 420px; }
+      button { padding: 6px 10px; }
+      #out { padding: 12px; line-height: 1.35; }
+      article { border-bottom: 1px solid #f0f0f0; padding: 10px 0; }
+      h3 { margin: 0 0 4px 0; font-size: 15px; }
+      .meta { color: #666; font-size: 12px; margin-bottom: 6px; }
+      .abs { white-space: pre-wrap; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <div class="bar">
+      <label>Snapshot root</label>
+      <input id="root" value="/snapshots/v2025-08-15" />
+      <button id="load">Load</button>
+      <span id="status" style="color:#666;font-size:12px;"></span>
+    </div>
+    <div id="out"></div>
+
+    <script>
+      const $ = (id)=>document.getElementById(id);
+      async function fetchJSON(url){
+        const r = await fetch(url);
+        if(!r.ok) throw new Error(url + " → " + r.status);
+        return await r.json();
+      }
+      function docToHTML(d){
+        const esc = (s)=>String(s||"").replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+        return `
+          <article>
+            <h3>${esc(d.title)}</h3>
+            <div class="meta">${esc(d.venue)} · ${esc(d.year)} · <code>${esc(d.doc_id)}</code></div>
+            <div class="abs">${esc(d.abstract_300)}</div>
+          </article>`;
+      }
+      async function loadAll(){
+        const base = $("root").value.replace(/\/$/, "");
+        $("status").textContent = "Loading manifest…";
+        const mani = await fetchJSON(base + "/manifest.json");
+        $("status").textContent = `docs ${mani.counts.docs}, tiles ${mani.counts.tiles}`;
+        const pattern = mani.tiles.pattern;
+        const out = $("out");
+        out.innerHTML = "";
+        for(let t=0; t<mani.counts.tiles; t++){
+          const tid = String(t).padStart(5,"0");
+          const url = `${base}/${pattern.replace("{tile_id}", tid)}`;
+          $("status").textContent = `tile ${t+1}/${mani.counts.tiles}`;
+          const tile = await fetchJSON(url); // devserver auto-decompresses .json.br
+          // append incrementally to avoid building a huge string
+          const frag = document.createElement("div");
+          frag.innerHTML = tile.docs.map(docToHTML).join("");
+          out.appendChild(frag);
+          // yield to UI
+          await new Promise(r=>setTimeout(r,0));
+        }
+        $("status").textContent = "Done.";
+      }
+      $("load").onclick = loadAll;
+      // auto-load default
+      loadAll().catch(e=>{$("status").textContent = e.message; console.error(e);});
+    </script>
+  </body>
+</html>
