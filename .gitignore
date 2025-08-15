@@ -22,3 +22,18 @@ data/frontend/
 *.bin
 .venv/
 dist/
+
+
+# Python build crap
+*.pyc
+*.pyo
+**/__pycache__/
+*.egg-info/
+.venv/
+
+# Generated artefacts
+data/snapshots/
+data/frontend/
+*.json.br
+*.sha256
+*.bin
