@@ -1,0 +1,24 @@
+__pycache__/
+.env
+.venv
+node_modules/
+dist/
+*.pyc
+*.pyo
+*.log
+.DS_Store
+coverage/
+/.pytest_cache
+
+# === project outputs ===
+data/snapshots/
+data/frontend/
+**/__pycache__/
+*.pyc
+*.pyo
+*.log
+*.json.br
+*.sha256
+*.bin
+.venv/
+dist/
